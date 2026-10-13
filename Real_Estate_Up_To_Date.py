@@ -4,14 +4,13 @@ import telebot
 import pandas as pd
 from datetime import datetime
 
-# ထည့်သွင်းပေးလိုက်သော Telegram Bot Token
+# ထည့်သွင်းပေးထားသော Telegram Bot Token
 TELETOKEN = '8923937624:AAGitSxbFpt7Ztww82s0lqryBq167z06cO0'
 bot = telebot.TeleBot(TELETOKEN)
 
 EXCEL_FILE = "real_estate_data.xlsx"
 
 def parse_real_estate_post(post_text):
-    # Link ရှာရန်
     link_match = re.search(r'(https?://(?:www\.)?(?:facebook\.com|fb\.watch|t\.me)/\S+)', post_text)
     extracted_link = link_match.group(1) if link_match else ""
 
@@ -35,7 +34,6 @@ def parse_real_estate_post(post_text):
         elif 'လှိုင်' in line:
             township = "Hlaing"
         
-        # ဖုန်းနံပါတ် ရှာရန်
         phone_match = re.search(r'(09[-0-9]{7,})', line)
         if phone_match:
             phone_str = phone_match.group(1)
@@ -75,17 +73,29 @@ def undo_last_row():
     df.to_excel(EXCEL_FILE, index=False)
     return "🗑️ နောက်ဆုံးထည့်သွင်းခဲ့သော အချက်အလက်ကို အောင်မြင်စွာ ပြန်ဖျက်လိုက်ပါပြီ။"
 
+# /undo အမိန့်
 @bot.message_handler(commands=['undo'])
 def handle_undo(message):
     result_message = undo_last_row()
     bot.reply_to(message, result_message)
 
+# 📊 Excel ဖိုင်ကို Telegram ထဲ တိုက်ရိုက် တောင်းရန် /getexcel အမိန့်
+@bot.message_handler(commands=['getexcel'])
+def handle_get_excel(message):
+    if os.path.exists(EXCEL_FILE) and os.path.getsize(EXCEL_FILE) > 0:
+        with open(EXCEL_FILE, 'rb') as f:
+            bot.send_document(message.chat.id, f, caption="📂 လက်ရှိ Excel ဒေတာဖိုင်")
+    else:
+        bot.reply_to(message, "⚠️ Excel ဖိုင် မရှိသေးပါ (သို့မဟုတ်) ဒေတာ မဝင်သေးပါ။")
+
+# Telegram Channel ထဲမှ ပို့စ်များကို ဖမ်းယူရန်
 @bot.channel_post_handler(func=lambda message: True)
 def handle_channel_posts(message):
     if message.text:
         row_data = parse_real_estate_post(message.text)
         save_to_excel(row_data)
 
+# ပုံမှန် Chat ထဲမှ ပို့သော စာများကို လက်ခံရန်
 @bot.message_handler(func=lambda message: True)
 def handle_message(message):
     post_text = message.text
